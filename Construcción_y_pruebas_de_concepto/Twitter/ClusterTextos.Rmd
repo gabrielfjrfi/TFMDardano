@@ -1,0 +1,135 @@
+
+
+Carga de paquetes
+```{r}
+library(rtweet)
+library(tidytext)
+
+library("xlsx")
+library(tidyverse)
+library(readxl)
+```
+
+Lectura excel usuarios
+```{r}
+ExtractionNames <- read_excel("ExtractionNames.xlsx")
+```
+
+
+
+```{r}
+token <- create_token(
+  app = "Spark Twitter Streaming Amat",
+  consumer_key = "dxlZh3IpB5XOTkt7X8mwssqcp",
+  consumer_secret = "r8E2rgQQVkkHR4x4S0UNdgP3Qews4gCddMHCyHyaAqFuyKgdWT",
+  access_token="1270835605-E8kj1eyMWUMkoYBHrer1t1hgqaSSI0kNCg0vkLD",
+  access_secret="0BVF2UTZXkcoThA4uiFshIKHoQjIuBBQ6ndJlHvP3aBqn"
+)
+```
+
+```{r}
+T_List <- data.frame()
+for(User_NameI in ExtractionNames$User_Name){
+  
+  ParticularUser <- get_timeline(User_NameI, n = 200, token = token)
+  ParticularUser <- ParticularUser %>% select(screen_name,created_at,text)
+  
+  sselected <- ExtractionNames %>% filter(User_Name==User_NameI) %>% select(Party,Type)
+  ParticularUser$Partido <- sselected[[1]]
+  ParticularUser$Type <- sselected[[2]]
+  
+  T_List <- rbind(T_List,ParticularUser)
+}
+```
+
+```{r}
+save(T_List,file="4799TPartits.Rda")
+```
+
+
+```{r}
+load("4799TPartits.Rda")
+```
+
+```{r}
+T_ListSample <- data.frame()
+for(User_NameI in ExtractionNames$User_Name){T_ListSample <- rbind(T_ListSample,data.frame(sample (T_List$text, size=30, replace = F)))}
+
+DebatTV3 <- read_excel("Datos/DebatTV3.xlsx")
+T_ListSample <- rbind(T_ListSample,sample (DebatTV3$content, size=40, replace = F))
+
+T_ListSample <- data.frame(Text=T_ListSample[sample(nrow(T_ListSample)),1])
+```
+
+```{r}
+save(T_ListSample,file="SampleTWClass.Rda")
+```
+
+
+```{r}
+write.xlsx(T_ListSample, file="SampleTWClass.xlsx", sheetName = "Sheet1", 
+  col.names = TRUE, row.names = FALSE, append = FALSE)
+```
+
+
+
+```{r}
+stopW<-read.table('./Datos/cat_stopwords.txt', encoding = 'UTF-8')
+
+stopW2 <- data.frame()
+
+for(i in seq(1,lengths(stopW)-1)){
+  stopW2 <- rbind(stopW2,if(str_sub(stopW[i,1],start=-1)==str_sub(stopW[10,1],start=-1) & str_sub(stopW[i+1,1],1,1)==str_sub(stopW[10+1,1],1,1)){str_replace(str_replace(paste0(stopW[i,1],'à',stopW[i+1,1]),str_sub(stopW[10,1],start=-1), ""),str_sub(stopW[10+1,1],1,1),"")}
+    )
+}
+
+stopW$MalaLectura <- NA
+stopW$MalaLectura[stopW$V1==]
+```
+
+
+```{r}
+library(topicmodels)
+library(tm)
+```
+
+```{r}
+#Remove punctuation - replace punctuation marks with " "
+docs <- unnest_tokens(T_List$text)
+docs <- docs %>% anti_join(cat_stopwords$V1)
+docs <- tm_map(Corpus(VectorSource(docs)), removePunctuation)
+#Transform to lower case
+docs <- tm_map(docs, content_transformer(tolower))
+#Strip digits
+docs <- tm_map(docs, removeNumbers)
+```
+
+```{r}
+
+```
+
+
+```{r}
+#Remove stopwords from standard stopword list
+#Strip whitespace (cosmetic?)
+docs <- tm_map(docs, stripWhitespace)
+#inspect output
+writeLines(as.character(docs[[30]]))
+```
+
+
+
+```{r}
+ap_lda <- LDA(T_List$text, k = 6, control = list(seed = 1234))
+ap_lda
+
+```
+
+
+```{r}
+
+```
+
+
+
+

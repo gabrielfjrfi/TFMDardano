@@ -1,0 +1,302 @@
+
+
+```{r}
+library(tidyverse)
+library(readr)
+library(foreign)
+```
+
+
+
+```{r}
+# dir <- "./Datos/Microdades anonimitzada fusio presencial.sav"
+# dfCEO <- read.spss(dir, to.data.frame=TRUE)
+# 
+# dir <- "./Datos/Microdades anonimitzades fusio cine telf.sav"
+# dfCEOtel <- read.spss(dir, to.data.frame=TRUE)
+
+# dir <- "./Datos/Microdades_anonimitzades_996.sav"
+# dfCEOtel <- read.spss(dir, to.data.frame=TRUE)
+# 
+# rm(dir,dfCEOtel)
+```
+
+```{r}
+# save(dfCEO,file="CEOBOP.Rda")
+# save(dfCEOtel,file="CEOBOPTel.Rda")
+```
+
+
+```{r}
+load("CEOBOP.Rda")
+```
+
+```{r}
+load("CEOBOPTel.Rda")
+```
+
+
+```{r}
+library(lubridate)
+library(midasml)
+
+make_date_100 <- function(year, month, day) {
+  date <- paste0(year,'-', month,'-', day)
+  date <- monthEnd(ymd(date))
+  return(date)
+}
+
+
+date_column <- function(df) {
+  original_names <- names(df)
+  names(df) <- toupper(names(df))
+  df <- df %>% 
+  mutate(
+    date = make_date_100(ANY, MES, 1)
+  )
+  names(df) <- c(original_names,'Date')
+  attributes(df)$variable.labels <- c(attributes(df)$variable.labels,'Date')
+  return(df)
+}
+
+
+dfCEO_NoNA_dt <- date_column(dfCEO)
+rm(dfCEO)
+# dfCEOtel_NoNA_dt <- date_column(dfCEOtel)
+# rm(dfCEOtel)
+```
+
+
+Excluir columnas no relevantes
+```{r}
+
+```
+
+Filtrado
+```{r}
+
+```
+
+Tabla resumen
+
+```{r}
+
+DescriptiveTable <- function(df){
+  TabDesc<-data.frame(Num_ID=seq.int(ncol(df)),
+                      Question=attributes(df)$variable.labels,
+                      Num_Of_Row=nrow(df),
+                      NA_On_Row=apply(is.na(df), 2, sum))
+  
+  TabDesc$Density <- 100-TabDesc$NA_On_Row/TabDesc$Num_Of_Row*100
+  TabDesc <- TabDesc %>% filter(Density!=0)
+  
+  TabDesc$Distinct <- sapply(df[,TabDesc$Num_ID], function(x) length(unique(x)))
+  TabDesc$Data_Type <- sapply(df[,TabDesc$Num_ID], function(x) class(x))
+  TabDesc <-tibble::rownames_to_column(TabDesc, "Col_Name")
+  
+  if("filter_." %in% colnames(df)){TabDesc <- TabDesc %>% filter(Col_Name != "filter_$" )}
+  
+  TabDesc[nrow(TabDesc),1] <- 'Date'
+  
+  Dates <- data.frame()
+
+  for(col in TabDesc$Col_Name){
+  Dates_temp <- df[,TabDesc$Num_ID] %>% select(col,Date) %>% drop_na(col) %>% summarize(Col_Name= col, First = min(Date, na.rm = TRUE), Last=max(Date, na.rm = TRUE))
+  Dates <- rbind(Dates,Dates_temp)
+  rm(Dates_temp)
+  }
+
+  TabDesc <- merge(TabDesc,Dates, by="Col_Name",all = TRUE)
+  rm(Dates)
+  TabDesc$First_And_Second_Most_Repeated_Elemlent <- sapply(df[,TabDesc$Num_ID], function(x) tail(names(sort(table(x))), 2))
+  TabDesc$First_And_Second_Most_Repeated_Elemlent <- TabDesc$First_And_Second_Most_Repeated_Elemlent 
+  TabDesc$First_And_Second_Most_Repeated_Elemlent <- sapply(c(1:nrow(TabDesc)), function(x) paste(TabDesc$First_And_Second_Most_Repeated_Elemlent[[x]], collapse = " | "))
+    
+  TabDesc <- TabDesc[order(TabDesc$Num_ID),]
+  rownames(TabDesc) <- NULL
+  return(TabDesc)
+}
+
+DescTab <- DescriptiveTable(dfCEO_NoNA_dt)
+# DescTabTel <- DescriptiveTable(dfCEOtel_NoNA_dt)
+```
+
+
+```{r}
+library("xlsx")
+write.xlsx(DescTab, file="Questions_CEO.xlsx", sheetName = "Sheet1", col.names = TRUE)
+# write.xlsx(DescTabTel, file="Questions_CEOTel.xlsx", sheetName = "Sheet1", col.names = TRUE)
+```
+
+```{r}
+coltoselect<- c(27,30,64,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,96,98,100,101,102,103,104,105,106,107,108,109,110,111,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,259,260,261,262,263,264,265,266,267,268,269,270,271,272,273,274,275,276,277,278,279,280,281,282,283,284,285,287,288,289,290,306,308,350,351,352,353,354,355,356,357,358,359,360,361,362,454,455,456,457,458,459,460,461,462,463,464,465,466,467,468,469,470,471,472,473,474,475,489,491,497,498,499,500,501,502,503,504,505,506,507,508,509,510,511,512,513,514,515,516,517,518,519,521,522,523,525,526,527,528,529,530,531,532,533,534,603,613,614,615,616,618,630,631,632,633,634,635,636,637,638,655,656,657,658,659,660,661,662,663,696,697,698,701,702,703,704,706,708,709,710,711,712,713,715,716,717,718,719,720,721,722,753,754,755,756,757,758,759,764,765,766,767,768)
+
+
+df_clus_fecha <- dfCEO_NoNA_dt %>% filter(Date > monthEnd(ymd("2020-9-1")))
+df_clus_cols <- df_clus_fecha[,coltoselect]
+
+
+DescTab2 <- DescriptiveTable(df_clus_cols)
+
+```
+
+
+```{r}
+for(x in 1:ncol(df_clus_cols)){
+  levels <- levels(df_clus_cols[,x])
+  levels[length(levels) + 1] <- "NS/NC"
+  df_clus_cols[,x] <- factor(df_clus_cols[,x], levels = levels)
+  df_clus_cols[,x][is.na(df_clus_cols[,x])] <- "NS/NC"
+  df_clus_cols[,x][df_clus_cols[,x]=="No ho sap"] <- "NS/NC"
+  df_clus_cols[,x][df_clus_cols[,x]=="Ns Nc"] <- "NS/NC"
+  df_clus_cols[,x][df_clus_cols[,x]=="No contesta"] <- "NS/NC"
+}
+```
+
+```{r}
+library("FactoMineR")
+library("factoextra")
+library(missMDA)
+```
+
+
+```{r}
+bad <- sapply(df_clus_cols, function(x) all(is.na(x)))
+df_clus_cols <- df_clus_cols[,!bad]
+
+Num_Of_Row=nrow(df_clus_cols)
+NA_On_Row=apply(is.na(df_clus_cols), 2, sum)
+  
+a <- 100-NA_On_Row/Num_Of_Row*100
+ 
+df_clus_cols <- df_clus_cols[a>90]
+```
+
+```{r}
+# source("newgit.R")
+source("newgit paralel.R")
+nb <- estim_ncpMCA2par(df_clus_cols)
+```
+
+
+```{r}
+library(mice)
+imp <- mice(df_clus_cols)
+```
+
+
+```{r}
+complete <- imputeMCA2(df_clus_cols, ncp=0)
+head(complete$tab.disj)
+```
+
+
+```{r}
+res.mca <- MCA(df_clus_cols, tab.disj = complete$tab.disj)
+```
+
+
+```{r}
+res.mca <- MCA(df_clus_cols, ncp = 20, graph = FALSE, tab.disj = complete$tab.disj)
+```
+
+```{r}
+print(res.mca)
+```
+
+```{r}
+res.mca$eig
+```
+
+
+
+
+```{r}
+plot(res.mca$eig[,1],type="l",main="Screeplot")
+abline(h=mean(as.data.frame(res.mca$eig[,1])[,1]),col="gray")
+```
+
+```{r}
+psi <- res.mca$ind$coord[,1:20]
+dist_mat <- dist(psi)
+hclus.churn <- hclust(dist_mat, method = "ward.D2")
+
+par(mar=c(6,4,1.5,0))
+plot(hclus.churn, cex=0.3)
+```
+```{r}
+barplot(hclus.churn$height[(2000-25):(2000-1)])
+```
+
+
+```{r}
+df_clus_cols$res.mca1 <- c(res.mca$ind$coord[, 1])
+df_clus_cols$res.mca2 <- c(res.mca$ind$coord[, 2])
+df_clus_cols$res.mca3 <- c(res.mca$ind$coord[, 3])
+
+df_clus_cols <- cbind(df_clus_cols,df_clus_fecha$INT_PARLAMENT_VOT_R)
+names(df_clus_cols)[96]<- "Partit"
+
+df_clus_cols$ColorP <- NA
+df_clus_cols$ColorP[df_clus_cols$Partit=='ERC']<-'yellow'
+df_clus_cols$ColorP[df_clus_cols$Partit=='PSC']<-'red'
+df_clus_cols$ColorP[df_clus_cols$Partit=='Junts per Catalunya']<-'lightseagreen'
+df_clus_cols$ColorP[df_clus_cols$Partit=='CUP']<-'yellow4'
+df_clus_cols$ColorP[df_clus_cols$Partit=='NS/NC']<-'grey'
+df_clus_cols$ColorP[df_clus_cols$Partit=='Nul']<-'black'
+df_clus_cols$ColorP[df_clus_cols$Partit=='No votaria']<-'black'
+df_clus_cols$ColorP[df_clus_cols$Partit=='Catalunya en Comú Podem']<-'magenta4'
+df_clus_cols$ColorP[df_clus_cols$Partit=='Vox']<-'green'
+df_clus_cols$ColorP[df_clus_cols$Partit=="C's"]<-'orange'
+df_clus_cols$ColorP[df_clus_cols$Partit=='PPC']<-'blue'
+
+ggplot(data = df_clus_cols, aes(x=res.mca1, y=res.mca2, color = Partit)) +
+  geom_hline(yintercept = 0,lty = 2)+
+  geom_vline(xintercept = 0,lty = 2)+
+  geom_point(alpha = 0.5)
+```
+
+```{r}
+eig.val <- get_eigenvalue(res.mca)
+head(eig.val)
+```
+```{r}
+fviz_mca_var(res.mca, choice = "mca.cor", 
+            repel = TRUE, # Avoid text overlapping (slow)
+            ggtheme = theme_minimal())
+```
+
+```{r}
+fviz_mca_var(res.mca, 
+             repel = TRUE, # Avoid text overlapping (slow)
+             ggtheme = theme_minimal())
+```
+
+
+
+```{r}
+var <- get_mca_var(res.mca)
+head(round(var$coord, 2), 4)
+```
+
+```{r}
+# Contributions of rows to dimension 1
+fviz_contrib(res.mca, choice = "var", axes = 1, top = 10)
+# Contributions of rows to dimension 2
+fviz_contrib(res.mca, choice = "var", axes = 2, top = 30)
+```
+
+
+```{r}
+fviz_screeplot(res.mca, addlabels = TRUE, ylim = c(0, 45))
+```
+
+```{r}
+fviz_mca_biplot(res.mca, 
+               repel = TRUE, # Avoid text overlapping (slow if many point)
+               ggtheme = theme_minimal())
+```
+
+
+
+
